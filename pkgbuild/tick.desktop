@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Tick
+GenericName=To-do List
+Comment=A to-do list in a Markdown file
+Exec=tick-gui
+Icon=tick
+Terminal=false
+Categories=Utility;Office;
+Keywords=todo;tasks;checklist;list;
+StartupWMClass=tick

@@ -1,0 +1,29 @@
+# Builds from this checkout: cd pkgbuild && makepkg -si
+pkgname=tick
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='A to-do list in a Markdown file, with a terminal UI, quick capture, and a window'
+arch=('x86_64')
+license=('MIT')
+depends=('coreutils' 'libxkbcommon' 'wayland' 'libglvnd')
+makedepends=('cargo')
+options=('!lto')
+source=()
+sha256sums=()
+
+build() {
+  cd "$startdir/.."
+  cargo build --release --workspace --locked
+}
+
+package() {
+  cd "$startdir/.."
+  /usr/bin/install -Dm755 target/release/tick "$pkgdir/usr/bin/tick"
+  /usr/bin/install -Dm755 target/release/tick-gui "$pkgdir/usr/bin/tick-gui"
+  for d in tick tick-terminal tick-capture; do
+    /usr/bin/install -Dm644 "$startdir/$d.desktop" "$pkgdir/usr/share/applications/$d.desktop"
+  done
+  /usr/bin/install -Dm644 "$startdir/tick.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/tick.svg"
+  /usr/bin/install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  /usr/bin/install -Dm644 gui/fonts/OFL.txt "$pkgdir/usr/share/licenses/$pkgname/OFL.txt"
+}

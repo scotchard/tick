@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Tick (Terminal)
+GenericName=To-do List
+Comment=Tick in a floating terminal window
+Exec=omarchy-launch-or-focus-tui tick
+Icon=tick
+Terminal=false
+Categories=Utility;Office;
+Keywords=todo;tasks;checklist;list;

@@ -1,0 +1,12 @@
+[package]
+name = "tick"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[[bin]]
+name = "tick"
+path = "src/main.rs"
+
+[dependencies]
+tick-core = { path = "../core" }

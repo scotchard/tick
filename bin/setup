@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Build Tick and install it for the current user under ~/.local.
+#   bin/setup             build + install
+#   bin/setup uninstall   remove what this installed (your todo.md is kept)
+set -euo pipefail
+
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+PREFIX="${PREFIX:-$HOME/.local}"
+FILES=(
+  "bin/tick"
+  "bin/tick-gui"
+  "share/applications/tick.desktop"
+  "share/applications/tick-terminal.desktop"
+  "share/applications/tick-capture.desktop"
+  "share/icons/hicolor/scalable/apps/tick.svg"
+)
+
+if [[ ${1:-} == uninstall ]]; then
+  for f in "${FILES[@]}"; do
+    rm -fv "$PREFIX/$f"
+  done
+  exit 0
+fi
+
+cd "$ROOT"
+cargo build --release --workspace
+
+/usr/bin/install -Dm755 target/release/tick "$PREFIX/bin/tick"
+/usr/bin/install -Dm755 target/release/tick-gui "$PREFIX/bin/tick-gui"
+for d in tick tick-terminal tick-capture; do
+  /usr/bin/install -Dm644 "pkgbuild/$d.desktop" "$PREFIX/share/applications/$d.desktop"
+done
+/usr/bin/install -Dm644 pkgbuild/tick.svg "$PREFIX/share/icons/hicolor/scalable/apps/tick.svg"
+gtk-update-icon-cache -q "$PREFIX/share/icons/hicolor" 2>/dev/null || true
+
+echo
+echo "Installed tick and tick-gui to $PREFIX/bin."
+echo "Your list lives in $("$PREFIX/bin/tick" path)."
+echo "For keybinds and window rules, see extras/hyprland.lua."

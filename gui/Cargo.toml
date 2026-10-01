@@ -1,0 +1,13 @@
+[package]
+name = "tick-gui"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[[bin]]
+name = "tick-gui"
+path = "src/main.rs"
+
+[dependencies]
+tick-core = { path = "../core" }
+eframe = { version = "0.36", default-features = false, features = ["glow", "wayland", "x11", "default_fonts"] }

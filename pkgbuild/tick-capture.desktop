@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Tick: Quick Add
+GenericName=Add a To-do
+Comment=Add a to-do to Tick's Inbox
+Exec=omarchy-launch-or-focus-tui --app-id=tick-capture tick capture
+Icon=tick
+Terminal=false
+Categories=Utility;Office;
+Keywords=todo;add;capture;inbox;
