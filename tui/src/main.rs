@@ -23,7 +23,7 @@ Usage:
   tick path                 print the file Tick uses
 
 Options:
-  -f, --file PATH           use PATH instead of $TICK_FILE or ~/Documents/todo.md
+  -f, --file PATH           use PATH instead of $TICK_FILE or ~/Documents/Tick/todo.md
   -h, --help                show this help
   -V, --version             show the version";
 

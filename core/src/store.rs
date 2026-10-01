@@ -5,6 +5,7 @@
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 use crate::doc::Doc;
 
@@ -13,20 +14,53 @@ const UNDO_LIMIT: usize = 200;
 pub const DEFAULT_FILE: &str = "# Today\n\n# Inbox\n";
 
 /// What we last saw of a file on disk. Cheap to take, and changes whenever
-/// the file is rewritten, replaced, or swapped for another one.
+/// the file is rewritten, replaced, or swapped for another one, or a file
+/// appears beside it (such as a Syncthing conflict copy).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Stamp {
-    modified: Option<std::time::SystemTime>,
+    modified: Option<SystemTime>,
     len: u64,
     ino: u64,
+    dir: Option<SystemTime>,
 }
 
 impl Stamp {
     pub fn of(path: &Path) -> Option<Stamp> {
         use std::os::unix::fs::MetadataExt;
         let m = fs::metadata(path).ok()?;
-        Some(Stamp { modified: m.modified().ok(), len: m.len(), ino: m.ino() })
+        let dir = path.parent().and_then(|d| fs::metadata(d).ok()).and_then(|d| d.modified().ok());
+        Some(Stamp { modified: m.modified().ok(), len: m.len(), ino: m.ino(), dir })
     }
+
+    fn same_file(a: Option<Stamp>, b: Option<Stamp>) -> bool {
+        match (a, b) {
+            (Some(a), Some(b)) => (a.modified, a.len, a.ino) == (b.modified, b.len, b.ino),
+            (a, b) => a == b,
+        }
+    }
+}
+
+/// Syncthing conflict copies of `path`, oldest first. For `todo.md` these
+/// are named `todo.sync-conflict-<date>-<time>-<device>.md`.
+fn conflicts(path: &Path) -> Vec<PathBuf> {
+    let (Some(dir), Some(stem)) = (path.parent(), path.file_stem().and_then(|s| s.to_str())) else {
+        return Vec::new();
+    };
+    let ext = path.extension().and_then(|e| e.to_str()).map(|e| format!(".{e}")).unwrap_or_default();
+    let prefix = format!("{stem}.sync-conflict-");
+    let mut found: Vec<PathBuf> = fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| {
+            p.file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with(&prefix) && n.ends_with(&ext))
+        })
+        .collect();
+    found.sort();
+    found
 }
 
 pub struct Store {
@@ -63,6 +97,31 @@ impl Store {
         let text = fs::read_to_string(&self.path)?;
         self.doc = Doc::parse(&text);
         self.stamp = stamp;
+        self.merge_conflicts()
+    }
+
+    /// Folds Syncthing conflict copies into the document, saves, and deletes
+    /// them, so the same list edited on two offline machines ends up whole.
+    fn merge_conflicts(&mut self) -> io::Result<()> {
+        let copies = conflicts(&self.path);
+        if copies.is_empty() {
+            return Ok(());
+        }
+        let before = self.doc.clone();
+        let mut merged = Vec::new();
+        for copy in copies {
+            // One we can't read yet gets another try on the next reload.
+            if let Ok(text) = fs::read_to_string(&copy) {
+                self.doc.merge(&Doc::parse(&text));
+                merged.push(copy);
+            }
+        }
+        if self.doc != before {
+            self.save()?;
+        }
+        for copy in merged {
+            let _ = fs::remove_file(copy);
+        }
         Ok(())
     }
 
@@ -74,7 +133,13 @@ impl Store {
     /// Reloads if another program changed the file. Returns true if it did.
     /// Undo history is dropped, since it describes the old contents.
     pub fn refresh(&mut self) -> io::Result<bool> {
-        if !self.changed_on_disk() {
+        let now = Stamp::of(&self.path);
+        if now == self.stamp {
+            return Ok(false);
+        }
+        // Only the folder changed (a temp file came or went): keep undo.
+        if Stamp::same_file(now, self.stamp) && conflicts(&self.path).is_empty() {
+            self.stamp = now;
             return Ok(false);
         }
         self.load()?;
@@ -195,6 +260,29 @@ mod tests {
         s.edit(|d| d.lists[0].add(Item::new("x"))).unwrap();
         assert!(fs::symlink_metadata(&link).unwrap().file_type().is_symlink());
         assert_eq!(fs::read_to_string(&real).unwrap(), "# A\n- [ ] x\n");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn merges_and_removes_syncthing_conflicts() {
+        let dir = temp_dir("conflict");
+        let path = dir.join("todo.md");
+        fs::write(&path, "# A\n- [ ] one\n").unwrap();
+        let mut s = Store::open(&path).unwrap();
+        s.edit(|d| d.lists[0].add(Item::new("two"))).unwrap();
+        // The other machine's version lands beside ours; ours is untouched.
+        let copy = dir.join("todo.sync-conflict-20260930-120000-ABCDEFG.md");
+        fs::write(&copy, "# A\n- [x] one\n- [ ] from desktop\n").unwrap();
+        fs::write(dir.join("notes.sync-conflict-20260930-120000-ABCDEFG.md"), "# B\n").unwrap();
+        assert!(s.refresh().unwrap());
+        assert_eq!(fs::read_to_string(&path).unwrap(), "# A\n- [x] one\n- [ ] from desktop\n- [ ] two\n");
+        assert!(!copy.exists());
+        assert!(dir.join("notes.sync-conflict-20260930-120000-ABCDEFG.md").exists());
+        // A file that only comes and goes beside ours doesn't cost the undo history.
+        s.edit(|d| d.lists[0].add(Item::new("three"))).unwrap();
+        fs::write(dir.join(".syncthing.tmp"), "").unwrap();
+        assert!(!s.refresh().unwrap());
+        assert!(s.can_undo());
         fs::remove_dir_all(dir).unwrap();
     }
 

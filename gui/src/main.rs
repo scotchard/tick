@@ -26,7 +26,7 @@ tick-gui: Tick as a window.
 
 Usage: tick-gui [-f PATH] [--app-id ID]
 
-  -f, --file PATH   use PATH instead of $TICK_FILE or ~/Documents/todo.md
+  -f, --file PATH   use PATH instead of $TICK_FILE or ~/Documents/Tick/todo.md
       --app-id ID   Wayland app id for window rules (default: tick)
   -h, --help        show this help";
 

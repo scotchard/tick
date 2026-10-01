@@ -272,6 +272,38 @@ impl Doc {
     pub fn open_count(&self) -> usize {
         self.lists.iter().map(List::open_count).sum()
     }
+
+    /// Folds in another copy of this document, such as a Syncthing conflict
+    /// copy: lists and to-dos only it has are added (after the to-do they
+    /// followed there), and anything ticked in either copy stays ticked.
+    /// With no common ancestor a deletion looks like an addition on the other
+    /// side, so a to-do deleted in one copy comes back rather than risk
+    /// losing one.
+    pub fn merge(&mut self, other: &Doc) {
+        for theirs in &other.lists {
+            let Some(l) = self.find(&theirs.name) else {
+                self.lists.push(theirs.clone());
+                continue;
+            };
+            let list = &mut self.lists[l];
+            let mut at = 0;
+            for item in theirs.items() {
+                let found = list.items().position(|mine| mine.text == item.text);
+                match found {
+                    Some(i) => {
+                        if item.done {
+                            list.item_mut(i).unwrap().done = true;
+                        }
+                        at = i + 1;
+                    }
+                    None => {
+                        list.insert(at, item.clone());
+                        at += 1;
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Item text and list names are single-line.
@@ -433,6 +465,21 @@ Notes about the store.
         assert_eq!(doc.move_item(0, 1, 1), Some(3)); // done item goes to the bottom
         assert_eq!(doc.move_item(0, 0, 0), None);
         assert_eq!(doc.open_count(), 3);
+    }
+
+    #[test]
+    fn merge_keeps_both_sides() {
+        let mut mine = Doc::parse("# Today\n- [ ] a\n- [ ] b\n- [x] c\n");
+        let theirs = Doc::parse("# Today\n- [x] a\n- [ ] new\n- [ ] b\n\n# Shop\nNote\n- [ ] milk\n");
+        mine.merge(&theirs);
+        assert_eq!(
+            mine.to_markdown(),
+            "# Today\n- [x] a\n- [ ] new\n- [ ] b\n- [x] c\n\n# Shop\nNote\n- [ ] milk\n"
+        );
+        // Merging the same copy again changes nothing.
+        let once = mine.clone();
+        mine.merge(&theirs);
+        assert_eq!(mine, once);
     }
 
     #[test]

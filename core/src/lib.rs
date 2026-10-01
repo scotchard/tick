@@ -14,13 +14,14 @@ pub use theme::{Rgb, Theme, ThemeWatch};
 /// Where captured to-dos go when no list is named.
 pub const INBOX: &str = "Inbox";
 
-/// The to-do file: `$TICK_FILE`, else `~/Documents/todo.md`.
+/// The to-do file: `$TICK_FILE`, else `~/Documents/Tick/todo.md` (a folder of
+/// its own, so it can be shared with Syncthing).
 pub fn default_path() -> PathBuf {
     if let Some(p) = std::env::var_os("TICK_FILE").filter(|p| !p.is_empty()) {
         return PathBuf::from(p);
     }
     let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
-    home.join("Documents/todo.md")
+    home.join("Documents/Tick/todo.md")
 }
 
 /// `~` for the home directory, for showing paths in the UI.

@@ -1,8 +1,8 @@
 # Tick
 
 A dead-simple to-do list for Omarchy. Your to-dos live in one Markdown file
-(`~/Documents/todo.md`) that you can also open in Omawrite, sync, or diff in
-git. Tick is three small ways to work that file:
+(`~/Documents/Tick/todo.md`) that you can also open in Omawrite, sync, or diff
+in git. Tick is three small ways to work that file:
 
 - **`tick`**: a terminal list, launched into a floating window. No dependencies,
   about 4 MB of memory.
@@ -48,6 +48,20 @@ Each heading is a list, and each `- [ ]` line is a to-do. Other lines, such as n
 are kept as they are. `#tags` and `due:` dates are highlighted. Tick saves on every
 change with an atomic write. If another program changes the file, Tick reloads it.
 Use `--file PATH` or `$TICK_FILE` to point Tick at a different file.
+
+## Syncing between machines
+
+Share `~/Documents/Tick` with [Syncthing](https://syncthing.net). It syncs
+machines directly, with no account or server. Tick reloads when the other
+machine's changes arrive. If both machines change the list while they can't
+reach each other, Syncthing keeps the other version as
+`todo.sync-conflict-….md`. Tick merges it back in and deletes it: to-dos
+added on either side are kept, and anything ticked on either side stays
+ticked. Because there is no common version to compare against, a to-do deleted
+on only one side comes back after a merge. Tick never drops a to-do on its own.
+
+Add `.*.tick-*` to the folder's `.stignore` so Syncthing skips the temp file
+Tick writes while saving.
 
 ## Command line
 
