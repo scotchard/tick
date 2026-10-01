@@ -1,1 +1,4 @@
 /target
+
+# Your real list lives outside the repo (~/Documents/todo.md); never commit one.
+todo.md
